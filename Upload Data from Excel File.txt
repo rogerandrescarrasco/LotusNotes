@@ -1,0 +1,128 @@
+Option Public
+
+Dim dbNab As NotesDatabase
+Dim doc As NotesDocument
+Dim session As NotesSession
+Dim lview As NotesView                  'this view  is in index.nsf
+Dim row As Integer
+Dim PersonName As String
+Dim Excel As Variant
+Dim xlWorkbook As Variant
+Dim xls As Variant
+Dim xlSheet As Variant
+Dim cell
+Dim xlFilename
+Dim userMatchFlag As Boolean 
+Dim MngName As Variant
+Dim ret As Boolean
+Dim generatePassword As Variant
+Sub Initialize
+
+	Dim uiworkspace As NotesUIWorkspace
+	
+	'On Error GoTo ErrHandler
+	Set uiworkspace=New NotesUIWorkspace()
+	
+	xlFilename  = uiworkspace.OpenFileDialog(False,"Select the Excel File to Import","Excel files | *.*", "")
+	Set Excel = CreateObject( "Excel.Application" )
+	Excel.Visible = False '// Don't display the Excel window
+	
+	Excel.Workbooks.Open xlFilename '// Open the Excel file
+	Set xlWorkbook = Excel.ActiveWorkbook
+	Set xlSheet = xlWorkbook.ActiveSheet	
+	
+	row = 3  '' ????? $$$$$$$         'Start at row x. In case of column headers.
+	nf = 0
+	atEnd = False
+	
+	Dim session As New NotesSession
+	Dim db As NotesDatabase
+	Dim collection As NotesDocumentCollection
+	Dim doc As NotesDocument
+	Set db = session.CurrentDatabase
+	
+	Dim vID As String	
+	Do While Not atEnd
+		vID = Trim( xlSheet.Cells( row, 2 ).Value  )
+		If vID<>"" Then
+			searchFormula$ = "Form = 'Profile' & EmployeeID = '"+vID+"'"
+			Set collection = db.Search(searchFormula$, Nothing,0)
+			Set doc = collection.GetFirstDocument()
+			If Not(doc Is Nothing) Then
+				Call doc.Replaceitemvalue("DriverLicenseClass", Trim( xlSheet.Cells( row, 4 ).Value  ))	
+				Call doc.Replaceitemvalue("DrivingLicNo", Trim( xlSheet.Cells( row, 5 ).Value  ))	
+				Call doc.Replaceitemvalue("LicenseType", Trim( xlSheet.Cells( row, 6 ).Value  ))	
+				Call doc.Replaceitemvalue("CurrentCopyLicenses", Trim( xlSheet.Cells( row, 7 ).Value  ))	
+				Call doc.Replaceitemvalue("LicenseEndorsementZ", Trim( xlSheet.Cells( row, 8 ).Value  ))	
+				Call doc.Replaceitemvalue("LicenseRestrictions", Trim( xlSheet.Cells( row, 9 ).Value  ))
+				Call doc.Replaceitemvalue("LicenseRestrictionsW", Trim( xlSheet.Cells( row, 10 ).Value  ))
+				
+				vd1 = Trim( xlSheet.Cells( row, 11 ).Value  )
+				If vd1<>"" Then
+					vd1D = Mid(vd1,1,2)
+					vd1M = Mid(vd1,4,2)
+					vd1Y = Mid(vd1,7,4)
+					vd1Date = DateNumber(vd1Y, vd1M, vd1D) 
+					Call doc.Replaceitemvalue("LicenseExpiryDate", vd1Date)
+				End If
+				
+				vd2 = Trim( xlSheet.Cells( row, 12 ).Value  )
+				If vd2<>"" Then
+					vd2D = Mid(vd2,1,2)
+					vd2M = Mid(vd2,4,2)
+					vd2Y = Mid(vd2,7,4)
+					vd2Date = DateNumber(vd2Y, vd2M, vd2D)			
+					Call doc.Replaceitemvalue("SBDIC", vd2Date)
+				End If
+				
+				vd3 = Trim( xlSheet.Cells( row, 13 ).Value  )
+				If vd3<>"" Then
+					vd3D = Mid(vd3,1,2)
+					vd3M = Mid(vd3,4,2)
+					vd3Y = Mid(vd3,7,4)
+					vd3Date = DateNumber(vd3Y, vd3M, vd3D)			
+					Call doc.Replaceitemvalue("MedicalReportExpiryDate", vd3Date)
+				End If
+				
+				vd4 = Trim( xlSheet.Cells( row, 14 ).Value  )
+				If vd4<>"" Then
+					vd4D = Mid(vd4,1,2)
+					vd4M = Mid(vd4,4,2)
+					vd4Y = Mid(vd4,7,4)
+					vd4Date = DateNumber(vd4Y, vd4M, vd4D)			
+					Call doc.Replaceitemvalue("LicenseIssueDate", vd4Date)
+				End If
+				
+				Call doc.Save(True, False)
+			Else
+				'MessageBox("Employee ID "+vID+" not found")
+				nf = nf + 1
+			End If
+		Else
+			'is vid blank
+			nf = nf + 1
+		End If		
+		row = row + 1
+		Print CStr(row)
+		If ( xlSheet.Cells( row, 1 ).Value = "" ) Then
+			atEnd = True
+		End If
+	Loop		
+	MessageBox("Number of records not found in Profile "+CStr(nf))
+	
+	xlWorkbook.Close False '// Close the Excel file without saving (we made no changes)ges)
+	Excel.Quit
+	Set Excel = Nothing '// Free the memory that we'd used
+
+
+	
+ExitCode :
+	Exit Sub
+	
+ErrHandler :
+	xlWorkbook.Close False '// Close the Excel file without saving (we made no changes)ges)
+	Excel.Quit
+	Set Excel = Nothing
+	MsgBox "Error in (Upload Salary) - " &  LSI_Info(12) & " : " & Err & "-" & Error$ & " (line " & Erl & ")"
+	Resume exitcode	
+End Sub
