@@ -1,0 +1,67 @@
+%REM
+	Agent Redirect-Message
+	Created Jan 16, 2022 by Roger Carrasco/BigDomino
+	Description: Comments for Agent
+%END REM
+Option Public
+Option Declare
+
+Sub Initialize
+	Dim session As New NotesSession
+	Dim db As NotesDatabase
+	Dim collection As NotesDocumentCollection
+	Dim collectionTemp As NotesDocumentCollection
+	Dim doc As NotesDocument
+	Dim docTemp As NotesDocument
+	Dim thisagent As NotesAgent
+	Dim searchFormula,searchFormulaTemp,email_check As string
+	Set db = session.CurrentDatabase
+	
+	'log database
+	Dim dblog As NotesDatabase 
+	Dim db_name As String
+	
+	'*************************************************
+	' Path and Name of Destination Database.
+	db_name = "Log\MailBox.nsf"
+	'*************************************************
+	
+	Dim dbdir As New NotesDbDirectory(db.Server)
+	Set dblog = dbdir.GetFirstDatabase(DATABASE)
+	Set dblog = New NotesDatabase(db.Server,db_name)
+	
+	'*************************************************
+	' List of address will me move to other database
+	Dim list_email(1 To 2) As String
+	list_email(1) = "roger.carrasco@gmail.com"
+	list_email(2) = "Roger Carrasco"
+	'*************************************************
+	
+	searchFormulaTemp = {Form = "999"}
+	Set collectionTemp = db.Search(searchFormulaTemp,Nothing,0)
+	
+	Dim x,vx,tot As Integer
+	vx=0
+	tot=0
+	For x=1 To UBound(list_email)
+		email_check = LCase(list_email(x))
+		searchFormula = "form = 'Memo' & @Contains(@LowerCase(From); '"+email_check+"')"
+		Set collection = db.Search(searchFormula,Nothing,0)
+		MessageBox("Total documents found for '"+email_check+"': "+CStr(collection.Count))
+		Set doc = collection.GetFirstDocument()
+		
+		While Not(doc Is Nothing)		
+			tot=tot+1
+			Call doc.CopyToDatabase(dblog)	
+			Call collectionTemp.AddDocument(doc)
+			Set doc = collection.GetNextDocument(doc)	
+			vx=1
+		Wend		
+	Next	
+	If vx = 1 Then
+		Call collectionTemp.RemoveAll( True )
+		MessageBox("Total messages moved: "+CStr(tot))
+	Else
+		MessageBox("Not Found messages")
+	End If 
+End Sub
