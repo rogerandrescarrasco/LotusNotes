@@ -1,0 +1,115 @@
+%REM
+	Agent CalendarEntry
+	Created Jul 10, 2021 by Roger Carrasco/BigDomino
+	Description: Comments for Agent
+%END REM
+Option Public
+Option Declare
+
+Sub Initialize
+	Dim workspace As New NotesUIWorkspace
+	Dim db As New NotesDatabase( "", "" )
+	Call db.OpenMail
+	Dim dbNames As New NotesDatabase( db.Server, "names.nsf" )
+	Dim collection As NotesDocumentCollection
+	Dim doc As NotesDocument
+	Dim uidoc As NotesUIDocument
+	Set uidoc = workspace.CurrentDocument
+	Dim currentdoc As NotesDocument
+	Set currentdoc = uidoc.Document	
+	Dim user,searchFormula,MailFile,MailServer As String
+	user = currentdoc.Title(0)	
+	searchFormula = "Form = 'Person' & FullName = '"+user+"'"
+	Set collection = dbNames.Search(searchFormula, Nothing,0)
+	Set doc = collection.GetFirstDocument()
+	
+	If (doc Is Nothing) Then
+		MessageBox user+" was not found in Address Book"
+	Else
+		MailFile = doc.MailFile(0)
+		MailServer = doc.MailServer(0)
+		Dim dbMail As New NotesDatabase( MailServer, MailFile )
+		If Not dbMail.IsOpen Then
+			MessageBox ("Not Found "+MailFile+" Database on Server "+MailServer)
+			Exit Sub
+		End If
+		
+		
+		
+		'----------- Set Date and Times ----------------
+		Dim item1 As NotesItem		
+		Dim StartDate As NotesDateTime
+		Set item1 = currentdoc.GetFirstItem("StartDate")
+		Set StartDate = item1.DateTimeValue
+				
+		Dim item2 As NotesItem	
+		Dim EndDate As NotesDateTime
+		Set item2 = currentdoc.GetFirstItem("EndDate")
+		Set EndDate = item2.DateTimeValue		
+		
+		Dim vdates List As NotesDateTime
+		Dim days As Integer
+		days = (EndDate.Timedifference(StartDate))/86400
+		If days+1<3 Then
+			Exit Sub
+		End If
+		Dim x,tx As Integer
+		For x = 0 To days
+			If x=0 Then
+				tx = 0
+			Else
+				tx = 1
+			End If			
+			Call StartDate.AdjustDay( tx )
+			
+			Dim cEntry As New NotesDocument (dbMail)
+			Dim rtitem As Variant
+			Dim itemIcon As NotesItem
+			Dim item As NotesItem
+			Dim ret As Variant		
+			cEntry.Form = "Appointment"
+			cEntry.~$Programmatically = "1"
+			Set item = New NotesItem(cEntry, "From", doc.FullName(0))
+			item.IsAuthors = True
+			Set item = New NotesItem(cEntry, "Principal", doc.FullName(0))
+			Set item = New NotesItem(cEntry, "$BusyName", doc.FullName(0))
+			item.IsNames = True
+			cEntry.AppointmentType = "3"
+			Set itemIcon = New NotesItem(cEntry, "_ViewIcon", 9)
+			itemIcon.IsSummary = True
+			cEntry.~$BusyPriority = "1"
+			cEntry.Subject = currentdoc.leavetype(0)
+			
+			Dim d1 As Variant
+			d1 = CDat(CStr(StartDate.Dateonly) + " 08:00")
+			cEntry.StartDate = CDat(CStr(StartDate.Dateonly) + " 08:00")
+			cEntry.StartTime = CDat("08:00")	
+			cEntry.StartDateTime = CDat(CStr(StartDate.Dateonly) + " 08:00")
+			
+			cEntry.EndDate = CDat(CStr(StartDate.Dateonly) + " 18:00")
+			cEntry.EndTime = CDat("18:00")
+			cEntry.EndDateTime = CDat(CStr(StartDate.Dateonly) + " 18:00")
+										
+			cEntry.calendarDateTime = StartDate.LSLocalTime		
+			'----------- Set Other Fields ----------------
+			cEntry.~$NoPurge = EndDate.LSLocalTime
+			cEntry.~$PublicAccess = "1"
+			cEntry.MailOptions=""
+			cEntry.tmpWhichList = ""		
+			Set item = New NotesItem(cEntry, "ExcludeFromView", "D")
+			Call item.AppendToTextList ("S")
+			cEntry.OrgTable = "C0"
+			cEntry.Location = currentdoc.Request(0) 
+			Set item = New NotesItem(cEntry, "Categories", currentdoc.leavetype(0))     
+			cEntry.Logo = "stdNotesLtr0"
+			cEntry.OrgState = "x"
+			cEntry.Repeats = ""
+			cEntry.Resources = ""
+			cEntry.SaveOptions = ""
+			cEntry.SequenceNum = "1"
+			cEntry.APPTUNID = cEntry.UniversalID
+			Call cEntry.save(False, True)	
+		Next
+		MessageBox("Calanedar entry created")
+	End If
+End Sub
